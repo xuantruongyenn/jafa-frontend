@@ -1,0 +1,29 @@
+/* Layout chung */
+body { background-color: #f5f5f4; color: #292524; font-family: sans-serif; }
+
+/* CSS cho sơ đồ cây Family Tree */
+.tf-tree { font-size: 14px; display: inline-block; padding-top: 20px; white-space: nowrap; }
+.tf-tree * { box-sizing: border-box; margin: 0; padding: 0; }
+.tf-tree ul { padding-top: 20px; position: relative; display: flex; justify-content: center; }
+.tf-tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 20px 10px 0 10px; }
+.tf-tree li::before, .tf-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #d6d3d1; width: 50%; height: 20px; }
+.tf-tree li::after { right: auto; left: 50%; border-left: 2px solid #d6d3d1; }
+.tf-tree li:only-child::after, .tf-tree li:only-child::before { display: none; }
+.tf-tree li:only-child { padding-top: 0; }
+.tf-tree li:first-child::before, .tf-tree li:last-child::after { border: 0 none; }
+.tf-tree li:last-child::before { border-right: 2px solid #d6d3d1; border-radius: 0 4px 0 0; }
+.tf-tree li:first-child::after { border-radius: 4px 0 0 0; }
+.tf-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #d6d3d1; width: 0; height: 20px; margin-left: -1px; }
+
+/* Style cho từng node thành viên */
+.tf-nc { display: inline-block; border: 2px solid #a8a29e; background-color: #fafaf9; border-radius: 8px; padding: 10px 15px; min-width: 140px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; transition: all 0.2s ease; position: relative; }
+.tf-nc:hover { border-color: #d97706; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transform: translateY(-2px); }
+.tf-nc.selected { border-color: #d97706; background-color: #fef3c7; box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.2); }
+.tf-nc.gender-m { border-top: 4px solid #3b82f6; } 
+.tf-nc.gender-f { border-top: 4px solid #ec4899; } 
+
+/* Chart & Utilities */
+.chart-container { position: relative; width: 100%; max-width: 300px; margin: 0 auto; height: 250px; max-height: 250px; }
+#tree-container { cursor: grab; user-select: none; }
+#tree-container:active { cursor: grabbing !important; }
+#family-tree-wrapper { transition: transform 0.15s ease-out; transform-origin: top center; }

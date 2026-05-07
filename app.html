@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Phần Mềm Quản Lý Gia Phả</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-stone-100 text-stone-800 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Header được tối ưu thu gọn trên Mobile -->
+    <header class="bg-stone-800 text-stone-50 p-3 md:p-4 shadow-md flex justify-between items-center shrink-0 z-40">
+        <div class="flex items-center gap-2 md:gap-3">
+            <h1 class="text-xl md:text-2xl font-bold tracking-wide">🌳 <span class="hidden sm:inline">Gia Phả</span></h1>
+            <span class="bg-stone-600 px-2 py-0.5 rounded text-[10px] md:text-xs">Xin chào, <b id="user-greeting" class="text-amber-400"></b></span>
+        </div>
+        <div class="flex items-center gap-2 md:gap-4">
+            <div class="text-xs md:text-sm bg-stone-700 px-2 md:px-3 py-1.5 rounded-md border border-stone-600 flex items-center gap-2">
+                <div><span class="hidden md:inline">Tổng: </span><span id="total-members-badge" class="font-bold text-amber-400 text-sm md:text-base">0</span><span class="md:hidden"> 👤</span></div>
+                <div class="hidden md:block w-px h-4 bg-stone-500"></div>
+                <div class="hidden md:block text-xs text-stone-300">Ruột thịt: <span id="blood-members-badge" class="font-bold text-blue-400">0</span></div>
+                <div class="hidden md:block text-xs text-stone-300">Dâu rể: <span id="inlaw-members-badge" class="font-bold text-pink-400">0</span></div>
+            </div>
+            <button onclick="app.exportExcel()" class="bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-4 rounded shadow transition-colors">
+                <span class="hidden sm:inline">📥 Xuất Excel</span><span class="sm:hidden text-base">📥</span>
+            </button>
+            <button onclick="app.exportPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-4 rounded shadow transition-colors">
+                <span class="hidden sm:inline">📄 Xuất PDF</span><span class="sm:hidden text-base">📄</span>
+            </button>
+            <button onclick="app.logout()" class="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors">
+                <span class="hidden sm:inline">Đăng xuất</span><span class="sm:hidden text-base">🚪</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        <section class="flex-1 overflow-auto relative bg-stone-200/50 flex flex-col" id="tree-container">
+            <div id="zoom-area" class="min-w-max min-h-max p-10 md:p-20 flex justify-center">
+                <div id="family-tree-wrapper" class="pb-32 md:pb-20"></div>
+            </div>
+            
+            <div class="fixed bottom-6 left-4 md:left-6 bg-white rounded-lg shadow-lg border border-stone-200 flex items-center p-1 z-30 opacity-90 hover:opacity-100">
+                <button onclick="app.zoomOut()" class="p-2 text-stone-600 hover:bg-stone-100 rounded font-bold">➖</button>
+                <span id="zoom-level" class="px-2 md:px-4 text-xs md:text-sm font-semibold text-amber-700 min-w-[3rem] md:min-w-[4rem] text-center">100%</span>
+                <button onclick="app.zoomIn()" class="p-2 text-stone-600 hover:bg-stone-100 rounded font-bold">➕</button>
+                <div class="w-px h-6 bg-stone-200 mx-1"></div>
+                <button onclick="app.resetZoom()" class="p-2 text-stone-600 hover:bg-stone-100 rounded">🏠</button>
+            </div>
+
+            <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-stone-100 hidden z-20 px-4 text-center">
+                <p class="text-lg md:text-xl text-stone-500 mb-4">Gia phả hiện đang trống.</p>
+                <button onclick="app.startAdding(null)" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg">
+                    ➕ Bắt đầu tạo Thủy Tổ
+                </button>
+            </div>
+
+            <!-- Nút nổi mở panel trên Mobile -->
+            <button onclick="app.toggleMobilePanel()" class="md:hidden fixed bottom-6 right-4 bg-amber-600 hover:bg-amber-700 text-white w-12 h-12 rounded-full shadow-2xl z-30 flex items-center justify-center text-xl border-2 border-white">
+                📊
+            </button>
+        </section>
+
+        <!-- Panel: Ngăn kéo trượt trên Mobile (translate-x-full), Sidebar cố định trên Desktop -->
+        <section id="side-panel" class="fixed inset-y-0 right-0 w-full sm:w-[400px] md:relative md:w-[400px] bg-white border-l border-stone-200 shadow-2xl md:shadow-xl flex flex-col shrink-0 z-50 transform translate-x-full md:translate-x-0 transition-transform duration-300">
+            
+            <!-- Nút Đóng panel trên mobile -->
+            <div class="md:hidden flex justify-between items-center p-3 border-b border-stone-200 bg-stone-100 shrink-0">
+                <h2 class="text-base font-bold text-stone-700 uppercase tracking-wider">Bảng điều khiển</h2>
+                <button onclick="app.toggleMobilePanel()" class="bg-stone-300 hover:bg-stone-400 text-stone-800 rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm">✕</button>
+            </div>
+
+            <div id="panel-stats" class="p-6 flex-1 overflow-y-auto">
+                <h2 class="text-xl font-bold text-stone-800 mb-2">Thống Kê Tổng Quan</h2>
+                <div class="bg-stone-50 rounded-xl p-4 border border-stone-100 mb-6 mt-4">
+                    <div class="chart-container"><canvas id="genderChart"></canvas></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 text-center">
+                        <p class="text-stone-500 text-xs font-semibold">SỐ ĐỜI</p>
+                        <p id="stat-generations" class="text-3xl font-bold text-amber-600 mt-1">0</p>
+                    </div>
+                    <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 text-center">
+                        <p class="text-stone-500 text-xs font-semibold">NĂM SINH GẦN NHẤT</p>
+                        <p id="stat-latest-year" class="text-xl font-bold text-stone-700 mt-2">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="panel-editor" class="p-6 flex-1 overflow-y-auto hidden flex flex-col">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 id="form-title" class="text-xl font-bold text-stone-800">Thông tin</h2>
+                    <button onclick="app.closeEditor()" class="text-stone-400 hover:text-red-500 p-1 text-xl hidden md:block">✕</button>
+                </div>
+                <form id="member-form" onsubmit="app.saveMember(event)" class="space-y-4 flex-1">
+                    <input type="hidden" id="f-id"><input type="hidden" id="f-parentId">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Ảnh đại diện</label>
+                        <div class="flex items-center gap-4">
+                            <img id="f-avatar-preview" src="" alt="" 
+                                class="w-20 h-20 rounded-full object-cover border-2 border-stone-200 hidden shrink-0">
+                            <div class="flex-1">
+                                <input type="file" id="f-avatar-input" accept="image/*" 
+                                    class="w-full text-sm text-stone-500 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:bg-amber-50 file:text-amber-700 hover:file:bg-amber-100 cursor-pointer">
+                                <p class="text-xs text-stone-400 mt-1">Tối đa 300×300px, dung lượng ≤ 300KB</p>
+                            </div>
+                        </div>
+                        <input type="hidden" id="f-avatar">
+                    </div>
+                    <div><label class="block text-sm font-semibold mb-1">Họ và Tên *</label><input type="text" id="f-name" required class="w-full p-2 border rounded"></div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-semibold mb-1">Giới tính</label><select id="f-gender" class="w-full p-2 border rounded"><option value="M">Nam</option><option value="F">Nữ</option></select></div>
+                        <div><label class="block text-sm font-semibold mb-1">Vai vế</label><input type="text" id="f-title" class="w-full p-2 border rounded"></div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-sm font-semibold mb-1">Năm sinh</label><input type="number" id="f-birth" class="w-full p-2 border rounded"></div>
+                        <div><label class="block text-sm font-semibold mb-1">Năm mất</label><input type="number" id="f-death" class="w-full p-2 border rounded"></div>
+                    </div>
+                    <div><label class="block text-sm font-semibold mb-1">Vợ / Chồng</label><input type="text" id="f-spouse" class="w-full p-2 border rounded"></div>
+                    <div><label class="block text-sm font-semibold mb-1">Ghi chú</label><textarea id="f-desc" rows="2" class="w-full p-2 border rounded"></textarea></div>
+
+                    <div class="pt-4 flex gap-2">
+                        <button type="submit" class="bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded font-bold flex-1">💾 Lưu</button>
+                        <button type="button" id="btn-add-child" onclick="app.startAddingChild()" class="bg-stone-800 hover:bg-stone-900 text-white px-4 py-2 rounded font-bold hidden">➕ Thêm con</button>
+                    </div>
+                    <button type="button" id="btn-delete" onclick="app.deleteMember()" class="text-red-500 hover:bg-red-50 px-3 py-2 rounded text-sm font-medium w-full hidden mt-2">🗑 Xóa người này</button>
+                </form>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
