@@ -28,7 +28,63 @@ const app = {
         localStorage.removeItem('giapha_username');
         window.location.href = "index.html";
     },
+// --- ĐỔI MẬT KHẨU --- ← THÊM TỪ ĐÂY
+openChangePassword() {
+    document.getElementById('cp-old').value = '';
+    document.getElementById('cp-new').value = '';
+    document.getElementById('cp-confirm').value = '';
+    document.getElementById('cp-error').classList.add('hidden');
+    document.getElementById('change-password-modal').classList.remove('hidden');
+},
 
+closeChangePassword() {
+    document.getElementById('change-password-modal').classList.add('hidden');
+},
+
+async submitChangePassword() {
+    const oldPass = document.getElementById('cp-old').value;
+    const newPass = document.getElementById('cp-new').value;
+    const confirmPass = document.getElementById('cp-confirm').value;
+    const errEl = document.getElementById('cp-error');
+
+    errEl.classList.add('hidden');
+
+    if (!oldPass || !newPass || !confirmPass) {
+        errEl.innerText = 'Vui lòng điền đầy đủ thông tin!';
+        return errEl.classList.remove('hidden');
+    }
+    if (newPass !== confirmPass) {
+        errEl.innerText = 'Mật khẩu mới nhập lại không khớp!';
+        return errEl.classList.remove('hidden');
+    }
+    if (newPass.length < 6) {
+        errEl.innerText = 'Mật khẩu mới phải có ít nhất 6 ký tự!';
+        return errEl.classList.remove('hidden');
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/change-password`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+        });
+
+        if (res.status === 401) return this.logout();
+
+        const data = await res.json();
+        if (!res.ok) {
+            errEl.innerText = data.detail || 'Có lỗi xảy ra!';
+            return errEl.classList.remove('hidden');
+        }
+
+        this.closeChangePassword();
+        alert('✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+        this.logout();
+    } catch (e) {
+        errEl.innerText = 'Lỗi kết nối, vui lòng thử lại!';
+        errEl.classList.remove('hidden');
+    }
+},
     // --- AVATAR UPLOAD ---
     initAvatarUpload() {
         const fileInput = document.getElementById('f-avatar-input');
