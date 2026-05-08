@@ -11,30 +11,43 @@
 </head>
 <body class="bg-stone-100 text-stone-800 font-sans h-screen flex flex-col overflow-hidden">
 
-    <!-- Header được tối ưu thu gọn trên Mobile -->
+    <!-- Header -->
     <header class="bg-stone-800 text-stone-50 p-3 md:p-4 shadow-md flex justify-between items-center shrink-0 z-40">
         <div class="flex items-center gap-2 md:gap-3">
             <h1 class="text-xl md:text-2xl font-bold tracking-wide">🌳 <span class="hidden sm:inline">Gia Phả</span></h1>
             <span class="bg-stone-600 px-2 py-0.5 rounded text-[10px] md:text-xs">Xin chào, <b id="user-greeting" class="text-amber-400"></b></span>
         </div>
-        <div class="flex items-center gap-2 md:gap-4">
+        <div class="flex items-center gap-1.5 md:gap-2">
+            <!-- Thống kê thành viên -->
             <div class="text-xs md:text-sm bg-stone-700 px-2 md:px-3 py-1.5 rounded-md border border-stone-600 flex items-center gap-2">
                 <div><span class="hidden md:inline">Tổng: </span><span id="total-members-badge" class="font-bold text-amber-400 text-sm md:text-base">0</span><span class="md:hidden"> 👤</span></div>
                 <div class="hidden md:block w-px h-4 bg-stone-500"></div>
                 <div class="hidden md:block text-xs text-stone-300">Ruột thịt: <span id="blood-members-badge" class="font-bold text-blue-400">0</span></div>
                 <div class="hidden md:block text-xs text-stone-300">Dâu rể: <span id="inlaw-members-badge" class="font-bold text-pink-400">0</span></div>
             </div>
-            <button onclick="app.exportExcel()" class="bg-green-600 hover:bg-green-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-4 rounded shadow transition-colors">
-                <span class="hidden sm:inline">📥 Xuất Excel</span><span class="sm:hidden text-base">📥</span>
+
+            <!-- Xuất Excel: xanh lá -->
+            <button onclick="app.exportExcel()" title="Xuất Excel"
+                class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors flex items-center gap-1">
+                <span>📥</span><span class="hidden sm:inline">Excel</span>
             </button>
-            <button onclick="app.exportPDF()" class="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-4 rounded shadow transition-colors">
-                <span class="hidden sm:inline">📄 Xuất PDF</span><span class="sm:hidden text-base">📄</span>
+
+            <!-- Xuất PDF: xanh dương -->
+            <button onclick="app.exportPDF()" title="Xuất PDF"
+                class="bg-sky-600 hover:bg-sky-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors flex items-center gap-1">
+                <span>📄</span><span class="hidden sm:inline">PDF</span>
             </button>
-            <button onclick="app.openChangePassword()" class="bg-stone-600 hover:bg-stone-500 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors">
-                <span class="hidden sm:inline">🔑 Đổi MK</span><span class="sm:hidden text-base">🔑</span>
+
+            <!-- Đổi mật khẩu: amber/vàng -->
+            <button onclick="app.openChangePassword()" title="Đổi mật khẩu"
+                class="bg-amber-500 hover:bg-amber-600 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors flex items-center gap-1">
+                <span>🔑</span><span class="hidden md:inline">Đổi MK</span>
             </button>
-            <button onclick="app.logout()" class="bg-red-600 hover:bg-red-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors">
-                <span class="hidden sm:inline">Đăng xuất</span><span class="sm:hidden text-base">🚪</span>
+
+            <!-- Đăng xuất: đỏ — hành động nguy hiểm/rời đi -->
+            <button onclick="app.logout()" title="Đăng xuất"
+                class="bg-rose-600 hover:bg-rose-700 text-white text-xs md:text-sm font-bold py-1.5 px-2 md:px-3 rounded shadow transition-colors flex items-center gap-1">
+                <span>🚪</span><span class="hidden md:inline">Đăng xuất</span>
             </button>
         </div>
     </header>
@@ -45,12 +58,13 @@
                 <div id="family-tree-wrapper" class="pb-32 md:pb-20"></div>
             </div>
             
+            <!-- Zoom controls -->
             <div class="fixed bottom-6 left-4 md:left-6 bg-white rounded-lg shadow-lg border border-stone-200 flex items-center p-1 z-30 opacity-90 hover:opacity-100">
                 <button onclick="app.zoomOut()" class="p-2 text-stone-600 hover:bg-stone-100 rounded font-bold">➖</button>
                 <span id="zoom-level" class="px-2 md:px-4 text-xs md:text-sm font-semibold text-amber-700 min-w-[3rem] md:min-w-[4rem] text-center">100%</span>
                 <button onclick="app.zoomIn()" class="p-2 text-stone-600 hover:bg-stone-100 rounded font-bold">➕</button>
                 <div class="w-px h-6 bg-stone-200 mx-1"></div>
-                <button onclick="app.resetZoom()" class="p-2 text-stone-600 hover:bg-stone-100 rounded">🏠</button>
+                <button onclick="app.resetZoom()" title="Về đầu cây" class="p-2 text-stone-600 hover:bg-amber-50 hover:text-amber-700 rounded transition-colors">🏠</button>
             </div>
 
             <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center bg-stone-100 hidden z-20 px-4 text-center">
@@ -66,10 +80,9 @@
             </button>
         </section>
 
-        <!-- Panel: Ngăn kéo trượt trên Mobile (translate-x-full), Sidebar cố định trên Desktop -->
+        <!-- Side Panel -->
         <section id="side-panel" class="fixed inset-y-0 right-0 w-full sm:w-[400px] md:relative md:w-[400px] bg-white border-l border-stone-200 shadow-2xl md:shadow-xl flex flex-col shrink-0 z-50 transform translate-x-full md:translate-x-0 transition-transform duration-300">
             
-            <!-- Nút Đóng panel trên mobile -->
             <div class="md:hidden flex justify-between items-center p-3 border-b border-stone-200 bg-stone-100 shrink-0">
                 <h2 class="text-base font-bold text-stone-700 uppercase tracking-wider">Bảng điều khiển</h2>
                 <button onclick="app.toggleMobilePanel()" class="bg-stone-300 hover:bg-stone-400 text-stone-800 rounded-full w-8 h-8 flex items-center justify-center font-bold shadow-sm">✕</button>
@@ -88,6 +101,25 @@
                     <div class="bg-stone-50 p-4 rounded-xl border border-stone-100 text-center">
                         <p class="text-stone-500 text-xs font-semibold">NĂM SINH GẦN NHẤT</p>
                         <p id="stat-latest-year" class="text-xl font-bold text-stone-700 mt-2">-</p>
+                    </div>
+                </div>
+
+                <!-- Bảng thống kê chi tiết -->
+                <div class="mt-6">
+                    <h3 class="text-sm font-bold text-stone-600 uppercase tracking-wider mb-3">Chi tiết thành viên</h3>
+                    <div class="rounded-xl border border-stone-200 overflow-hidden">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr class="bg-stone-100 text-stone-500 text-xs uppercase tracking-wide">
+                                    <th class="text-left px-4 py-2.5 font-semibold">Phân loại</th>
+                                    <th class="text-center px-3 py-2.5 font-semibold">Số người</th>
+                                    <th class="text-center px-3 py-2.5 font-semibold">Tỷ lệ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="stat-table-body" class="divide-y divide-stone-100">
+                                <!-- Được điền bởi updateStats() -->
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -135,42 +167,43 @@
     </main>
 
     <script src="app.js"></script>
-<!-- Modal Đổi mật khẩu -->
-<div id="change-password-modal" class="hidden fixed inset-0 bg-stone-900/70 backdrop-blur-sm z-50 flex items-center justify-center px-4">
-    <div class="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl border border-stone-200">
-        <h3 class="text-xl font-bold text-stone-800 mb-1">🔑 Đổi mật khẩu</h3>
-        <p class="text-stone-400 text-sm mb-6">Nhập mật khẩu hiện tại để xác nhận</p>
-        
-        <div class="space-y-4">
-            <div>
-                <label class="block text-sm font-semibold text-stone-700 mb-1">Mật khẩu hiện tại</label>
-                <input type="password" id="cp-old" placeholder="••••••••"
-                    class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-stone-700 mb-1">Mật khẩu mới</label>
-                <input type="password" id="cp-new" placeholder="••••••••"
-                    class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
-            </div>
-            <div>
-                <label class="block text-sm font-semibold text-stone-700 mb-1">Nhập lại mật khẩu mới</label>
-                <input type="password" id="cp-confirm" placeholder="••••••••"
-                    class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
-            </div>
-            <p id="cp-error" class="hidden text-red-500 text-sm font-medium text-center"></p>
-        </div>
 
-        <div class="flex gap-3 mt-6">
-            <button onclick="app.submitChangePassword()"
-                class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-sm transition-colors shadow">
-                Xác nhận
-            </button>
-            <button onclick="app.closeChangePassword()"
-                class="flex-1 bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold py-2.5 rounded-lg text-sm transition-colors">
-                Hủy
-            </button>
+    <!-- Modal Đổi mật khẩu -->
+    <div id="change-password-modal" class="hidden fixed inset-0 bg-stone-900/70 backdrop-blur-sm z-50 flex items-center justify-center px-4">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl border border-stone-200">
+            <h3 class="text-xl font-bold text-stone-800 mb-1">🔑 Đổi mật khẩu</h3>
+            <p class="text-stone-400 text-sm mb-6">Nhập mật khẩu hiện tại để xác nhận</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-stone-700 mb-1">Mật khẩu hiện tại</label>
+                    <input type="password" id="cp-old" placeholder="••••••••"
+                        class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-stone-700 mb-1">Mật khẩu mới</label>
+                    <input type="password" id="cp-new" placeholder="••••••••"
+                        class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-stone-700 mb-1">Nhập lại mật khẩu mới</label>
+                    <input type="password" id="cp-confirm" placeholder="••••••••"
+                        class="w-full p-2.5 border border-stone-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none text-sm">
+                </div>
+                <p id="cp-error" class="hidden text-red-500 text-sm font-medium text-center"></p>
+            </div>
+
+            <div class="flex gap-3 mt-6">
+                <button onclick="app.submitChangePassword()"
+                    class="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 rounded-lg text-sm transition-colors shadow">
+                    Xác nhận
+                </button>
+                <button onclick="app.closeChangePassword()"
+                    class="flex-1 bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold py-2.5 rounded-lg text-sm transition-colors">
+                    Hủy
+                </button>
+            </div>
         </div>
     </div>
-</div>
 </body>
 </html>
