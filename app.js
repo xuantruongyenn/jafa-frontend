@@ -28,63 +28,65 @@ const app = {
         localStorage.removeItem('giapha_username');
         window.location.href = "index.html";
     },
-// --- ĐỔI MẬT KHẨU --- ← THÊM TỪ ĐÂY
-openChangePassword() {
-    document.getElementById('cp-old').value = '';
-    document.getElementById('cp-new').value = '';
-    document.getElementById('cp-confirm').value = '';
-    document.getElementById('cp-error').classList.add('hidden');
-    document.getElementById('change-password-modal').classList.remove('hidden');
-},
 
-closeChangePassword() {
-    document.getElementById('change-password-modal').classList.add('hidden');
-},
+    // --- ĐỔI MẬT KHẨU ---
+    openChangePassword() {
+        document.getElementById('cp-old').value = '';
+        document.getElementById('cp-new').value = '';
+        document.getElementById('cp-confirm').value = '';
+        document.getElementById('cp-error').classList.add('hidden');
+        document.getElementById('change-password-modal').classList.remove('hidden');
+    },
 
-async submitChangePassword() {
-    const oldPass = document.getElementById('cp-old').value;
-    const newPass = document.getElementById('cp-new').value;
-    const confirmPass = document.getElementById('cp-confirm').value;
-    const errEl = document.getElementById('cp-error');
+    closeChangePassword() {
+        document.getElementById('change-password-modal').classList.add('hidden');
+    },
 
-    errEl.classList.add('hidden');
+    async submitChangePassword() {
+        const oldPass = document.getElementById('cp-old').value;
+        const newPass = document.getElementById('cp-new').value;
+        const confirmPass = document.getElementById('cp-confirm').value;
+        const errEl = document.getElementById('cp-error');
 
-    if (!oldPass || !newPass || !confirmPass) {
-        errEl.innerText = 'Vui lòng điền đầy đủ thông tin!';
-        return errEl.classList.remove('hidden');
-    }
-    if (newPass !== confirmPass) {
-        errEl.innerText = 'Mật khẩu mới nhập lại không khớp!';
-        return errEl.classList.remove('hidden');
-    }
-    if (newPass.length < 6) {
-        errEl.innerText = 'Mật khẩu mới phải có ít nhất 6 ký tự!';
-        return errEl.classList.remove('hidden');
-    }
+        errEl.classList.add('hidden');
 
-    try {
-        const res = await fetch(`${API_URL}/change-password`, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ old_password: oldPass, new_password: newPass })
-        });
-
-        if (res.status === 401) return this.logout();
-
-        const data = await res.json();
-        if (!res.ok) {
-            errEl.innerText = data.detail || 'Có lỗi xảy ra!';
+        if (!oldPass || !newPass || !confirmPass) {
+            errEl.innerText = 'Vui lòng điền đầy đủ thông tin!';
+            return errEl.classList.remove('hidden');
+        }
+        if (newPass !== confirmPass) {
+            errEl.innerText = 'Mật khẩu mới nhập lại không khớp!';
+            return errEl.classList.remove('hidden');
+        }
+        if (newPass.length < 6) {
+            errEl.innerText = 'Mật khẩu mới phải có ít nhất 6 ký tự!';
             return errEl.classList.remove('hidden');
         }
 
-        this.closeChangePassword();
-        alert('✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
-        this.logout();
-    } catch (e) {
-        errEl.innerText = 'Lỗi kết nối, vui lòng thử lại!';
-        errEl.classList.remove('hidden');
-    }
-},
+        try {
+            const res = await fetch(`${API_URL}/change-password`, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ old_password: oldPass, new_password: newPass })
+            });
+
+            if (res.status === 401) return this.logout();
+
+            const data = await res.json();
+            if (!res.ok) {
+                errEl.innerText = data.detail || 'Có lỗi xảy ra!';
+                return errEl.classList.remove('hidden');
+            }
+
+            this.closeChangePassword();
+            alert('✅ Đổi mật khẩu thành công! Vui lòng đăng nhập lại.');
+            this.logout();
+        } catch (e) {
+            errEl.innerText = 'Lỗi kết nối, vui lòng thử lại!';
+            errEl.classList.remove('hidden');
+        }
+    },
+
     // --- AVATAR UPLOAD ---
     initAvatarUpload() {
         const fileInput = document.getElementById('f-avatar-input');
@@ -93,15 +95,13 @@ async submitChangePassword() {
         fileInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
- 
-            // Kiểm tra dung lượng tối đa 300KB
+
             if (file.size > 300 * 1024) {
                 alert("Ảnh quá lớn! Vui lòng chọn ảnh dưới 300KB.");
                 e.target.value = '';
                 return;
             }
- 
-            // Kiểm tra kích thước pixel tối đa 300x300
+
             const img = new Image();
             const objectUrl = URL.createObjectURL(file);
             img.onload = () => {
@@ -111,8 +111,7 @@ async submitChangePassword() {
                     e.target.value = '';
                     return;
                 }
- 
-                // Hợp lệ → convert sang base64
+
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     const base64 = ev.target.result;
@@ -235,39 +234,67 @@ async submitChangePassword() {
             return;
         }
 
-        // Thông báo cho người dùng vì quá trình này mất vài giây
         const originalScale = this.zoomScale;
-        alert("Hệ thống đang chuẩn bị bản in, vui lòng đợi trong giây lát...");
 
-        // Bước 1: Tạm thời đưa zoom về 100% để chụp ảnh nét nhất
+        // Bước 1: Về zoom 100% để chụp đủ và nét
         this.setZoom(1);
 
-        // Bước 2: Cấu hình cho PDF
-        const opt = {
-            margin:       [10, 10, 10, 10], // Lề [trên, trái, dưới, phải]
-            filename:     `Gia_Pha_${localStorage.getItem('giapha_username') || 'Dong_Ho'}.pdf`,
-            image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { 
-                scale: 2, // Tăng độ phân giải ảnh (nét hơn)
-                useCORS: true, // Hỗ trợ lấy ảnh avatar từ server khác
-                letterRendering: true
-            },
-            jsPDF:        { 
-                unit: 'mm', 
-                format: 'a4', 
-                orientation: 'landscape' // Xuất theo khổ giấy ngang cho cây rộng
-            }
-        };
+        // Bước 2: Chờ transition zoom xong mới chụp (150ms)
+        setTimeout(() => {
+            const opt = {
+                margin:      [10, 10, 10, 10],
+                filename:    `Gia_Pha_${localStorage.getItem('giapha_username') || 'Dong_Ho'}.pdf`,
+                image:       { type: 'jpeg', quality: 0.97 },
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    logging: false,
+                    // Đảm bảo chụp TOÀN BỘ nội dung element, không bị cắt
+                    scrollX: 0,
+                    scrollY: 0,
+                    // Quan trọng: fix màu border-top bị mất khi chụp canvas
+                    onclone: (clonedDoc) => {
+                        // Áp dụng lại màu giới tính bằng inline style để html2canvas không bị thiếu
+                        clonedDoc.querySelectorAll('.gender-m').forEach(el => {
+                            el.style.borderTop = '4px solid #3b82f6';
+                        });
+                        clonedDoc.querySelectorAll('.gender-f').forEach(el => {
+                            el.style.borderTop = '4px solid #ec4899';
+                        });
+                        // Giữ màu nền cho node đang được chọn
+                        clonedDoc.querySelectorAll('.tf-nc.selected').forEach(el => {
+                            el.style.borderColor = '#d97706';
+                            el.style.backgroundColor = '#fef3c7';
+                        });
+                        // Đảm bảo node mặc định có đủ màu nền và viền
+                        clonedDoc.querySelectorAll('.tf-nc').forEach(el => {
+                            if (!el.style.backgroundColor) {
+                                el.style.backgroundColor = '#fafaf9';
+                            }
+                            if (!el.style.borderColor) {
+                                el.style.borderColor = '#a8a29e';
+                            }
+                        });
+                    }
+                },
+                jsPDF: {
+                    unit: 'mm',
+                    format: 'a3',          // A3 rộng hơn A4 để chứa cây nhiều nhánh
+                    orientation: 'landscape'
+                }
+            };
 
-        // Bước 3: Thực hiện chuyển đổi và tải về
-        html2pdf().set(opt).from(element).save().then(() => {
-            // Bước 4: Trả lại mức zoom cũ cho người dùng
-            this.setZoom(originalScale);
-        }).catch(err => {
-            console.error("Lỗi xuất PDF:", err);
-            alert("Có lỗi khi tạo PDF. Vui lòng thử lại!");
-            this.setZoom(originalScale);
-        });
+            html2pdf().set(opt).from(element).save()
+                .then(() => {
+                    this.setZoom(originalScale);
+                })
+                .catch(err => {
+                    console.error("Lỗi xuất PDF:", err);
+                    alert("Có lỗi khi tạo PDF. Vui lòng thử lại!");
+                    this.setZoom(originalScale);
+                });
+        }, 200);
     },
     
     // --- MOBILE PANEL TOGGLE ---
@@ -288,7 +315,6 @@ async submitChangePassword() {
         const container = document.getElementById('tree-container');
         if (!container) return;
 
-        // Bắt sự kiện lăn chuột (Zoom)
         container.addEventListener('wheel', (e) => { 
             if (e.ctrlKey || e.metaKey) { 
                 e.preventDefault(); 
@@ -298,7 +324,6 @@ async submitChangePassword() {
         
         let isDragging = false, startX, startY, scrollLeft, scrollTop;
         
-        // Hàm bắt đầu kéo
         const startDrag = (x, y, target) => {
             if(target && target.closest('.tf-nc')) return; 
             isDragging = true;
@@ -308,10 +333,8 @@ async submitChangePassword() {
             scrollTop = container.scrollTop;
         };
         
-        // Hàm dừng kéo
         const stopDrag = () => { isDragging = false; };
         
-        // Hàm xử lý khi đang kéo
         const drag = (x, y, e) => {
             if (!isDragging) return;
             if (e.cancelable) e.preventDefault();
@@ -319,13 +342,11 @@ async submitChangePassword() {
             container.scrollTop = scrollTop - (y - container.offsetTop - startY);
         };
 
-        // Bắt sự kiện Chuột (Máy tính)
         container.addEventListener('mousedown', (e) => startDrag(e.pageX, e.pageY, e.target));
         container.addEventListener('mouseleave', stopDrag);
         container.addEventListener('mouseup', stopDrag);
         container.addEventListener('mousemove', (e) => drag(e.pageX, e.pageY, e));
 
-        // Bắt sự kiện Cảm ứng (Điện thoại)
         container.addEventListener('touchstart', (e) => {
             if(e.touches.length === 1) startDrag(e.touches[0].pageX, e.touches[0].pageY, e.target);
         }, {passive: false});
@@ -340,9 +361,17 @@ async submitChangePassword() {
         document.getElementById('family-tree-wrapper').style.transform = `scale(${this.zoomScale})`; 
         document.getElementById('zoom-level').innerText = Math.round(this.zoomScale * 100) + '%'; 
     },
-    zoomIn() { this.setZoom(this.zoomScale + 0.1); }, 
-    zoomOut() { this.setZoom(this.zoomScale - 0.1); }, 
-    resetZoom() { this.setZoom(1); },
+    zoomIn()  { this.setZoom(this.zoomScale + 0.1); }, 
+    zoomOut() { this.setZoom(this.zoomScale - 0.1); },
+
+    // Fix: nút 🏠 giờ reset cả zoom LẪN scroll về đầu trang
+    resetZoom() {
+        this.setZoom(1);
+        const container = document.getElementById('tree-container');
+        if (container) {
+            container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        }
+    },
 
     // --- RENDER ---
     render() {
@@ -353,13 +382,12 @@ async submitChangePassword() {
         if(roots.length > 0) tw.innerHTML = `<div class="tf-tree text-center">${this.buildTreeHTML(roots)}</div>`;
         else tw.innerHTML = `<div class="bg-white p-6 rounded shadow border border-red-200 text-center mx-auto mt-10">⚠️ Mất liên kết Thủy Tổ. <button onclick="app.startAdding(null)" class="text-blue-500 underline font-bold mt-2">Tạo lại</button></div>`;
     },
+
     buildTreeHTML(nodes) {
         if (!nodes || !nodes.length) return '';
         let html = '<ul>';
         nodes.forEach(n => {
             const c = this.data.filter(p => p.parentId === n.id);
-            
-            // Tự động gán màu Vợ/Chồng ngược lại với giới tính của người chính
             const spouseColorClass = n.gender === 'M' ? 'text-pink-600' : 'text-blue-600';
             
             html += `<li><div class="tf-nc ${n.gender === 'M' ? 'gender-m' : 'gender-f'} ${this.selectedId === n.id ? 'selected' : ''}" onclick="app.selectMember('${n.id}')">
@@ -388,7 +416,6 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         document.getElementById('panel-editor').classList.remove('hidden');
         ['id','parentId','name','gender','title','birth','death','spouse','desc','avatar'].forEach(k => document.getElementById('f-'+k).value = m[k] || '');
 
-        // Hiển thị preview ảnh
         const preview = document.getElementById('f-avatar-preview');
         if (m.avatar) {
             preview.src = m.avatar;
@@ -401,7 +428,6 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         document.getElementById('btn-add-child').classList.remove('hidden'); 
         document.getElementById('btn-delete').classList.remove('hidden');
 
-        // Mở panel trên Mobile
         this.toggleMobilePanel(true);
     },
 
@@ -419,7 +445,6 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         document.getElementById('btn-add-child').classList.add('hidden'); 
         document.getElementById('btn-delete').classList.add('hidden');
 
-        // Mở panel trên Mobile
         this.toggleMobilePanel(true);
     },
 
@@ -434,7 +459,6 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         document.getElementById('panel-editor').classList.add('hidden'); 
         document.getElementById('panel-stats').classList.remove('hidden'); 
         
-        // Đóng panel đi nếu đang ở màn hình điện thoại
         if (window.innerWidth < 768) { 
             this.toggleMobilePanel(false); 
         }
@@ -442,20 +466,14 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
     
     // --- STATISTICS ---
     updateStats() {
-        // Đếm số người ruột thịt (người được thêm vào như một node chính)
         const bloodCount = this.data.length;
-        // Đếm số dâu/rể (người được điền vào ô Vợ/Chồng)
         const inlawCount = this.data.filter(p => p.spouse && p.spouse.trim() !== '').length;
-        
-        // Tổng số thành viên
         const totalMembers = bloodCount + inlawCount;
         
-        // Cập nhật số liệu hiển thị trực tiếp lên Header
         if (document.getElementById('total-members-badge')) document.getElementById('total-members-badge').innerText = totalMembers;
         if (document.getElementById('blood-members-badge')) document.getElementById('blood-members-badge').innerText = bloodCount;
         if (document.getElementById('inlaw-members-badge')) document.getElementById('inlaw-members-badge').innerText = inlawCount;
 
-        // Tính số đời
         let maxD = 0; 
         const getD = (id, cD) => { 
             maxD = Math.max(maxD, cD); 
@@ -464,27 +482,56 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         this.data.filter(p => !p.parentId).forEach(r => getD(r.id, 1)); 
         document.getElementById('stat-generations').innerText = maxD;
         
-        // Tính năm sinh gần nhất
         let maxY = 0; 
         this.data.forEach(p => { 
             if(p.birth && parseInt(p.birth) > maxY) maxY = parseInt(p.birth); 
         }); 
         document.getElementById('stat-latest-year').innerText = maxY || '-';
         
-        // Thống kê chi tiết 4 nhóm: Nam ruột, Nữ ruột, Nam rể, Nữ dâu
-        let mBlood = 0, fBlood = 0, mInlaw = 0, fInlaw = 0;
-        
+        let mBlood = 0, fBlood = 0, mInlaw = 0, fInlaw = 0, living = 0, deceased = 0;
         this.data.forEach(p => {
             if (p.gender === 'M') {
-                mBlood++; // Người chính là Nam -> Nam ruột thịt
-                if (p.spouse && p.spouse.trim() !== '') fInlaw++; // Vợ -> Nữ dâu
+                mBlood++;
+                if (p.spouse && p.spouse.trim() !== '') fInlaw++;
             } else if (p.gender === 'F') {
-                fBlood++; // Người chính là Nữ -> Nữ ruột thịt
-                if (p.spouse && p.spouse.trim() !== '') mInlaw++; // Chồng -> Nam rể
+                fBlood++;
+                if (p.spouse && p.spouse.trim() !== '') mInlaw++;
             }
+            // Còn sống: không có năm mất (hoặc năm mất trống)
+            if (!p.death || p.death.toString().trim() === '') living++;
+            else deceased++;
         });
 
-        // Vẽ / Cập nhật biểu đồ với 4 chỉ số
+        // Vẽ bảng thống kê chi tiết
+        const tableBody = document.getElementById('stat-table-body');
+        if (tableBody) {
+            const total = this.data.length || 1; // tránh chia cho 0
+            const rows = [
+                { label: '👨 Nam (ruột thịt)',  count: mBlood,   color: 'text-blue-600',  bg: 'bg-blue-50' },
+                { label: '👩 Nữ (ruột thịt)',   count: fBlood,   color: 'text-pink-600',  bg: 'bg-pink-50' },
+                { label: '🤝 Ruột thịt (tổng)', count: bloodCount, color: 'text-stone-700', bg: '' },
+                { label: '💑 Dâu / Rể',         count: inlawCount, color: 'text-purple-600', bg: 'bg-purple-50' },
+                { label: '🌱 Còn sống',          count: living,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '🕊 Đã mất',            count: deceased, color: 'text-stone-400',  bg: 'bg-stone-50' },
+            ];
+            tableBody.innerHTML = rows.map((r, i) => {
+                const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
+                const isDivider = i === 2; // dòng tổng ruột thịt — kẻ đậm hơn
+                return `<tr class="${r.bg || 'bg-white'} ${isDivider ? 'border-t-2 border-stone-200' : ''}">
+                    <td class="px-4 py-2.5 text-stone-700 font-medium">${r.label}</td>
+                    <td class="px-3 py-2.5 text-center font-bold ${r.color} text-base">${r.count}</td>
+                    <td class="px-3 py-2.5 text-center">
+                        <div class="flex items-center gap-1.5 justify-center">
+                            <div class="w-14 bg-stone-200 rounded-full h-1.5 overflow-hidden">
+                                <div class="h-1.5 rounded-full bg-current ${r.color}" style="width:${pct}%"></div>
+                            </div>
+                            <span class="text-xs text-stone-400 w-7 text-right">${pct}%</span>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
         if(this.chartInstance) { 
             this.chartInstance.data.labels = ['Nam (Ruột thịt)', 'Nữ (Ruột thịt)', 'Nam (Dâu rể)', 'Nữ (Dâu rể)'];
             this.chartInstance.data.datasets[0].data = [mBlood, fBlood, mInlaw, fInlaw];
