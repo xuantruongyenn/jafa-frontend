@@ -19,11 +19,24 @@
         </div>
         <div class="flex items-center gap-1.5 md:gap-2">
             <!-- Thống kê thành viên -->
-            <div class="text-xs md:text-sm bg-stone-700 px-2 md:px-3 py-1.5 rounded-md border border-stone-600 flex items-center gap-2">
-                <div><span class="hidden md:inline">Tổng: </span><span id="total-members-badge" class="font-bold text-amber-400 text-sm md:text-base">0</span><span class="md:hidden"> 👤</span></div>
-                <div class="hidden md:block w-px h-4 bg-stone-500"></div>
-                <div class="hidden md:block text-xs text-stone-300">Ruột thịt: <span id="blood-members-badge" class="font-bold text-blue-400">0</span></div>
-                <div class="hidden md:block text-xs text-stone-300">Dâu rể: <span id="inlaw-members-badge" class="font-bold text-pink-400">0</span></div>
+            <div class="text-xs md:text-sm bg-stone-700 px-2 md:px-3 py-1 md:py-1.5 rounded-md border border-stone-600 flex items-center gap-2 md:gap-3">
+                <div class="flex items-center gap-1 md:gap-1.5">
+                    <svg class="w-3.5 h-3.5 md:w-4 md:h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                    </svg>
+                    <span class="hidden md:inline text-stone-300">Tổng: </span>
+                    <span id="total-members-badge" class="font-bold text-amber-400">0</span>
+                </div>
+                
+                <div class="hidden md:block w-px h-3.5 bg-stone-500"></div>
+                
+                <div class="hidden md:block text-stone-300 text-xs md:text-sm">
+                    Ruột thịt: <span id="blood-members-badge" class="font-bold text-blue-400">0</span>
+                </div>
+                
+                <div class="hidden md:block text-stone-300 text-xs md:text-sm">
+                    Dâu rể: <span id="inlaw-members-badge" class="font-bold text-pink-400">0</span>
+                </div>
             </div>
 
             <button onclick="app.exportExcel()" title="Xuất Excel"
