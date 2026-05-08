@@ -241,47 +241,52 @@ const app = {
 
         // Bước 2: Chờ transition zoom xong mới chụp (150ms)
         setTimeout(() => {
+            // Lấy kích thước thực tế của toàn bộ cây gia phả (kể cả phần bị khuất)
+            const fullWidth = element.scrollWidth;
+            const fullHeight = element.scrollHeight;
+
             const opt = {
-                margin:      [10, 10, 10, 10],
-                filename:    `Gia_Pha_${localStorage.getItem('giapha_username') || 'Dong_Ho'}.pdf`,
-                image:       { type: 'jpeg', quality: 0.97 },
+                margin: [20, 20, 20, 20],
+                filename: `Gia_Pha_${localStorage.getItem('giapha_username') || 'Dong_Ho'}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: {
                     scale: 2,
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    // Đảm bảo chụp TOÀN BỘ nội dung element, không bị cắt
+                    // Ép html2canvas lấy toàn bộ chiều rộng/cao thực tế
+                    width: fullWidth,
+                    height: fullHeight,
+                    windowWidth: fullWidth,
+                    windowHeight: fullHeight,
                     scrollX: 0,
                     scrollY: 0,
-                    // Quan trọng: fix màu border-top bị mất khi chụp canvas
                     onclone: (clonedDoc) => {
-                        // Áp dụng lại màu giới tính bằng inline style để html2canvas không bị thiếu
+                        // Áp dụng lại màu viền giới tính
                         clonedDoc.querySelectorAll('.gender-m').forEach(el => {
                             el.style.borderTop = '4px solid #3b82f6';
                         });
                         clonedDoc.querySelectorAll('.gender-f').forEach(el => {
                             el.style.borderTop = '4px solid #ec4899';
                         });
-                        // Giữ màu nền cho node đang được chọn
+                        // Fix lỗi mất viền của từng người
+                        clonedDoc.querySelectorAll('.tf-nc').forEach(el => {
+                            el.style.backgroundColor = '#fafaf9';
+                            el.style.border = '2px solid #a8a29e'; // Force hiển thị viền
+                            el.style.borderRadius = '8px';
+                            el.style.boxSizing = 'border-box';
+                        });
                         clonedDoc.querySelectorAll('.tf-nc.selected').forEach(el => {
                             el.style.borderColor = '#d97706';
                             el.style.backgroundColor = '#fef3c7';
                         });
-                        // Đảm bảo node mặc định có đủ màu nền và viền
-                        clonedDoc.querySelectorAll('.tf-nc').forEach(el => {
-                            if (!el.style.backgroundColor) {
-                                el.style.backgroundColor = '#fafaf9';
-                            }
-                            if (!el.style.borderColor) {
-                                el.style.borderColor = '#a8a29e';
-                            }
-                        });
                     }
                 },
                 jsPDF: {
-                    unit: 'mm',
-                    format: 'a3',          // A3 rộng hơn A4 để chứa cây nhiều nhánh
-                    orientation: 'landscape'
+                    unit: 'px', 
+                    // Linh hoạt tự tạo khổ giấy PDF vừa khít 100% với cây gia phả hiện tại
+                    format: [fullWidth + 40, fullHeight + 40], 
+                    orientation: fullWidth > fullHeight ? 'landscape' : 'portrait'
                 }
             };
 
@@ -290,11 +295,11 @@ const app = {
                     this.setZoom(originalScale);
                 })
                 .catch(err => {
-                    console.error("Lỗi xuất PDF:", err);
-                    alert("Có lỗi khi tạo PDF. Vui lòng thử lại!");
+                    console.error('Lỗi xuất PDF:', err);
+                    alert("Có lỗi xảy ra khi xuất PDF!");
                     this.setZoom(originalScale);
                 });
-        }, 200);
+        }, 150);
     },
     
     // --- MOBILE PANEL TOGGLE ---
