@@ -2,6 +2,7 @@ const API_URL = "https://giapha-api-backend.onrender.com";
 
 const auth = {
     mode: 'LOGIN', // Các mode: LOGIN, REGISTER, FORGOT_GET_Q, FORGOT_RESET
+    isLoading: false, // Trạng thái loading
     
     setMode(newMode) {
         this.mode = newMode;
@@ -120,9 +121,34 @@ const auth = {
             els.footer.classList.add('hidden');
         }
     },
+
+    // Hàm set trạng thái loading
+    setLoadingState(loading) {
+        this.isLoading = loading;
+        const btnMain = document.getElementById('auth-btn');
+        
+        if (loading) {
+            btnMain.disabled = true;
+            btnMain.classList.add('opacity-70', 'cursor-not-allowed');
+            btnMain.innerHTML = '⏳ Đang xử lý...';
+        } else {
+            btnMain.disabled = false;
+            btnMain.classList.remove('opacity-70', 'cursor-not-allowed');
+            
+            // Khôi phục text dựa trên mode
+            if (this.mode === 'LOGIN') btnMain.innerText = "Đăng Nhập";
+            else if (this.mode === 'REGISTER') btnMain.innerText = "Đăng Ký Tài Khoản";
+            else if (this.mode === 'FORGOT_GET_Q') btnMain.innerText = "Lấy câu hỏi bảo mật";
+            else if (this.mode === 'FORGOT_RESET') btnMain.innerText = "Xác nhận đổi mật khẩu";
+        }
+    },
     
     async submitForm(e) {
         e.preventDefault();
+        
+        // Không xử lý nếu đang loading
+        if (this.isLoading) return;
+        
         const user = document.getElementById('auth-username').value;
         const pass = document.getElementById('auth-password').value;
         const confirmPass = document.getElementById('auth-confirm-password').value;
@@ -141,11 +167,17 @@ const auth = {
             // Gọi API: BƯỚC LẤY CÂU HỎI
             if (this.mode === 'FORGOT_GET_Q') {
                 if(!user) throw new Error("Vui lòng nhập tài khoản!");
-                const res = await fetch(`${API_URL}/security-question/${user}`);
+                
+                this.setLoadingState(true);
+                const res = await fetch(`${API_URL}/security-question/${user}`, {
+                    signal: AbortSignal.timeout(10000) // Timeout 10 giây
+                });
                 const data = await res.json();
+                
                 if(!res.ok) throw new Error(data.detail || "Không tìm thấy tài khoản");
                 
                 document.getElementById('auth-sec-q-text').innerText = data.question;
+                this.setLoadingState(false);
                 this.setMode('FORGOT_RESET');
                 return;
             }
@@ -153,14 +185,19 @@ const auth = {
             // Gọi API: ĐẶT LẠI MẬT KHẨU
             if (this.mode === 'FORGOT_RESET') {
                 if(!secAnswer) throw new Error("Vui lòng nhập câu trả lời bảo mật!");
+                
+                this.setLoadingState(true);
                 const res = await fetch(`${API_URL}/reset-password`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: user, new_password: pass, security_answer: secAnswer})
+                    body: JSON.stringify({username: user, new_password: pass, security_answer: secAnswer}),
+                    signal: AbortSignal.timeout(10000)
                 });
                 const data = await res.json();
+                
                 if(!res.ok) throw new Error(data.detail || "Có lỗi xảy ra");
 
+                this.setLoadingState(false);
                 alert("Đổi mật khẩu thành công! Vui lòng đăng nhập lại.");
                 this.setMode('LOGIN');
                 return;
@@ -169,6 +206,8 @@ const auth = {
             // Gọi API: ĐĂNG KÝ
             if (this.mode === 'REGISTER') {
                 if(!secAnswer) throw new Error("Vui lòng nhập câu trả lời bảo mật!");
+                
+                this.setLoadingState(true);
                 const res = await fetch(`${API_URL}/register`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -177,11 +216,14 @@ const auth = {
                         password: pass,
                         security_question: secQuestion,
                         security_answer: secAnswer
-                    })
+                    }),
+                    signal: AbortSignal.timeout(10000)
                 });
                 const data = await res.json();
+                
                 if(!res.ok) throw new Error(data.detail || "Có lỗi xảy ra");
 
+                this.setLoadingState(false);
                 alert("Đăng ký thành công! Vui lòng đăng nhập.");
                 this.setMode('LOGIN');
                 return;
@@ -189,10 +231,12 @@ const auth = {
 
             // Gọi API: ĐĂNG NHẬP
             if (this.mode === 'LOGIN') {
+                this.setLoadingState(true);
                 const res = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: user, password: pass})
+                    body: JSON.stringify({username: user, password: pass}),
+                    signal: AbortSignal.timeout(10000) // Timeout 10 giây
                 });
                 const data = await res.json();
                 
@@ -200,11 +244,26 @@ const auth = {
 
                 localStorage.setItem('giapha_token', data.access_token);
                 localStorage.setItem('giapha_username', data.username);
+                
+                this.setLoadingState(false);
                 alert("Đăng nhập thành công! Bấm OK để vào Gia Phả.");
                 window.location.href = "app.html";
             }
         } catch(err) {
-            errEl.innerText = err.message;
+            this.setLoadingState(false);
+            
+            // Xử lý timeout
+            if (err.name === 'AbortError') {
+                errEl.innerText = '⏱️ Kết nối quá chậm. Vui lòng kiểm tra mạng hoặc thử lại sau.';
+            }
+            // Xử lý lỗi mạng
+            else if (err instanceof TypeError && err.message.includes('fetch')) {
+                errEl.innerText = '🔌 Lỗi mạng. Vui lòng kiểm tra kết nối Internet.';
+            }
+            else {
+                errEl.innerText = err.message;
+            }
+            
             errEl.classList.remove('hidden');
         }
     }
