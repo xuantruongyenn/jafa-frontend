@@ -14,7 +14,12 @@ function getAuthHeaders() {
 }
 
 const app = {
-    data: [], selectedId: null, chartInstance: null, zoomScale: 1,
+    data: [],
+    selectedId: null,
+    chartInstance: null,
+    zoomScale: 1,
+    _addingSpouseFor: null,  // ID của thành viên đang được thêm vợ/chồng
+    _spouseIds: new Set(),   // Cache tập hợp các ID là vợ/chồng
 
     init() {
         document.getElementById('user-greeting').innerText = localStorage.getItem('giapha_username') || '';
@@ -27,6 +32,12 @@ const app = {
         localStorage.removeItem('giapha_token');
         localStorage.removeItem('giapha_username');
         window.location.href = "index.html";
+    },
+
+    openStats() {
+        document.getElementById('panel-editor').classList.add('hidden');
+        document.getElementById('panel-stats').classList.remove('hidden');
+        this.toggleMobilePanel(true);
     },
 
     // --- ĐỔI MẬT KHẨU ---
@@ -111,7 +122,6 @@ const app = {
                     e.target.value = '';
                     return;
                 }
-
                 const reader = new FileReader();
                 reader.onload = (ev) => {
                     const base64 = ev.target.result;
@@ -125,7 +135,19 @@ const app = {
             img.src = objectUrl;
         });
     },
-    
+
+    // --- API HELPER ---
+    async _saveToApi(memberData) {
+        const res = await fetch(`${API_URL}/add-member`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify(memberData)
+        });
+        if (res.status === 401) { this.logout(); throw new Error('Unauthorized'); }
+        if (!res.ok) throw new Error("Lỗi Server");
+        return res.json();
+    },
+
     // --- API CALLS ---
     async loadData() {
         try {
@@ -143,8 +165,14 @@ const app = {
         } catch (error) { 
             console.error("Lỗi:", error); 
         }
+        this._rebuildSpouseIds();
         this.render(); 
         this.updateStats();
+    },
+
+    _rebuildSpouseIds() {
+        // Tập hợp các ID thành viên đang là vợ/chồng của người khác
+        this._spouseIds = new Set(this.data.filter(m => m.spouseId).map(m => m.spouseId));
     },
 
     async saveMember(event) {
@@ -157,48 +185,75 @@ const app = {
             title: document.getElementById('f-title').value,
             birth: document.getElementById('f-birth').value,
             death: document.getElementById('f-death').value,
-            spouse: document.getElementById('f-spouse').value,
+            spouse: document.getElementById('f-spouse').value || null,       // backward compat
             desc: document.getElementById('f-desc').value,
             parentId: document.getElementById('f-parentId').value || null,
+            spouseId: document.getElementById('f-spouseId').value || null,
             avatar: document.getElementById('f-avatar').value || null  
         };
 
         try {
-            const response = await fetch(`${API_URL}/add-member`, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify(newData)
-            });
-            if (response.status === 401) return this.logout();
-            if (!response.ok) throw new Error("Lỗi Server");
-            
-            await this.loadData();
-            if (!id) this.selectMember(newData.id); 
-            else alert("Lưu thành công!");
-        } catch (e) { alert("Lỗi khi lưu dữ liệu!"); }
+            if (this._addingSpouseFor && !id) {
+                // Đang thêm vợ/chồng mới cho một thành viên
+                const partnerOriginalId = this._addingSpouseFor;
+                newData.spouseId = partnerOriginalId;
+
+                // 1. Lưu thành viên mới (vợ/chồng)
+                await this._saveToApi(newData);
+
+                // 2. Cập nhật spouseId ngược lại cho thành viên gốc
+                const originalMember = this.data.find(p => p.id === partnerOriginalId);
+                if (originalMember) {
+                    await this._saveToApi({ ...originalMember, spouseId: newData.id });
+                }
+
+                this._addingSpouseFor = null;
+                await this.loadData();
+                this.selectMember(newData.id);
+            } else {
+                await this._saveToApi(newData);
+                await this.loadData();
+                if (!id) this.selectMember(newData.id); 
+                else alert("Lưu thành công!");
+            }
+        } catch (e) { 
+            if (e.message !== 'Unauthorized') alert("Lỗi khi lưu dữ liệu!"); 
+        }
     },
 
     async deleteMember() {
         const id = String(document.getElementById('f-id').value);
-        if(!id) return;
-        if(this.data.some(p => String(p.parentId) === id)) {
+        if (!id) return;
+        if (this.data.some(p => String(p.parentId) === id)) {
             return alert("Vui lòng xóa dữ liệu con cháu trước.");
         }
         
-        if(confirm("Bạn có chắc chắn muốn xóa?")) {
+        if (confirm("Bạn có chắc chắn muốn xóa?")) {
             try {
+                const memberToDelete = this.data.find(p => p.id === id);
+
+                // Hủy liên kết vợ/chồng 2 chiều trước khi xóa
+                if (memberToDelete && memberToDelete.spouseId) {
+                    const spouse = this.data.find(p => p.id === memberToDelete.spouseId);
+                    if (spouse) await this._saveToApi({ ...spouse, spouseId: null });
+                }
+                const partner = this.data.find(p => p.spouseId === id);
+                if (partner) await this._saveToApi({ ...partner, spouseId: null });
+
                 const res = await fetch(`${API_URL}/delete-member/${id}`, { 
                     method: 'DELETE',
                     headers: getAuthHeaders() 
                 });
-                if(res.status === 401) return this.logout();
+                if (res.status === 401) return this.logout();
                 
                 const result = await res.json();
                 if (result.error) return alert("Lỗi DB: " + result.error);
                 
                 await this.loadData();
                 this.closeEditor();
-            } catch(e) { alert("Lỗi mạng khi xóa!"); }
+            } catch(e) { 
+                if (e.message !== 'Unauthorized') alert("Lỗi mạng khi xóa!"); 
+            }
         }
     },
 
@@ -235,13 +290,9 @@ const app = {
         }
 
         const originalScale = this.zoomScale;
-
-        // Bước 1: Về zoom 100% để chụp đủ và nét
         this.setZoom(1);
 
-        // Bước 2: Chờ transition zoom xong mới chụp (150ms)
         setTimeout(() => {
-            // Lấy kích thước thực tế của toàn bộ cây gia phả (kể cả phần bị khuất)
             const fullWidth = element.scrollWidth;
             const fullHeight = element.scrollHeight;
 
@@ -254,7 +305,6 @@ const app = {
                     useCORS: true,
                     allowTaint: true,
                     logging: false,
-                    // Ép html2canvas lấy toàn bộ chiều rộng/cao thực tế
                     width: fullWidth,
                     height: fullHeight,
                     windowWidth: fullWidth,
@@ -262,17 +312,15 @@ const app = {
                     scrollX: 0,
                     scrollY: 0,
                     onclone: (clonedDoc) => {
-                        // Áp dụng lại màu viền giới tính
                         clonedDoc.querySelectorAll('.gender-m').forEach(el => {
                             el.style.borderTop = '4px solid #3b82f6';
                         });
                         clonedDoc.querySelectorAll('.gender-f').forEach(el => {
                             el.style.borderTop = '4px solid #ec4899';
                         });
-                        // Fix lỗi mất viền của từng người
                         clonedDoc.querySelectorAll('.tf-nc').forEach(el => {
                             el.style.backgroundColor = '#fafaf9';
-                            el.style.border = '2px solid #a8a29e'; // Force hiển thị viền
+                            el.style.border = '2px solid #a8a29e';
                             el.style.borderRadius = '8px';
                             el.style.boxSizing = 'border-box';
                         });
@@ -284,16 +332,13 @@ const app = {
                 },
                 jsPDF: {
                     unit: 'px', 
-                    // Linh hoạt tự tạo khổ giấy PDF vừa khít 100% với cây gia phả hiện tại
                     format: [fullWidth + 40, fullHeight + 40], 
                     orientation: fullWidth > fullHeight ? 'landscape' : 'portrait'
                 }
             };
 
             html2pdf().set(opt).from(element).save()
-                .then(() => {
-                    this.setZoom(originalScale);
-                })
+                .then(() => { this.setZoom(originalScale); })
                 .catch(err => {
                     console.error('Lỗi xuất PDF:', err);
                     alert("Có lỗi xảy ra khi xuất PDF!");
@@ -306,13 +351,9 @@ const app = {
     toggleMobilePanel(forceOpen = null) {
         const panel = document.getElementById('side-panel');
         if (!panel) return;
-        if (forceOpen === true) {
-            panel.classList.remove('translate-x-full');
-        } else if (forceOpen === false) {
-            panel.classList.add('translate-x-full');
-        } else {
-            panel.classList.toggle('translate-x-full');
-        }
+        if (forceOpen === true) panel.classList.remove('translate-x-full');
+        else if (forceOpen === false) panel.classList.add('translate-x-full');
+        else panel.classList.toggle('translate-x-full');
     },
 
     // --- ZOOM & PAN ---
@@ -330,16 +371,14 @@ const app = {
         let isDragging = false, startX, startY, scrollLeft, scrollTop;
         
         const startDrag = (x, y, target) => {
-            if(target && target.closest('.tf-nc')) return; 
+            if (target && target.closest('.tf-nc')) return; 
             isDragging = true;
             startX = x - container.offsetLeft;
             startY = y - container.offsetTop;
             scrollLeft = container.scrollLeft;
             scrollTop = container.scrollTop;
         };
-        
         const stopDrag = () => { isDragging = false; };
-        
         const drag = (x, y, e) => {
             if (!isDragging) return;
             if (e.cancelable) e.preventDefault();
@@ -353,11 +392,11 @@ const app = {
         container.addEventListener('mousemove', (e) => drag(e.pageX, e.pageY, e));
 
         container.addEventListener('touchstart', (e) => {
-            if(e.touches.length === 1) startDrag(e.touches[0].pageX, e.touches[0].pageY, e.target);
+            if (e.touches.length === 1) startDrag(e.touches[0].pageX, e.touches[0].pageY, e.target);
         }, {passive: false});
         container.addEventListener('touchend', stopDrag);
         container.addEventListener('touchmove', (e) => {
-            if(e.touches.length === 1 && isDragging) drag(e.touches[0].pageX, e.touches[0].pageY, e);
+            if (e.touches.length === 1 && isDragging) drag(e.touches[0].pageX, e.touches[0].pageY, e);
         }, {passive: false});
     },
 
@@ -369,103 +408,217 @@ const app = {
     zoomIn()  { this.setZoom(this.zoomScale + 0.1); }, 
     zoomOut() { this.setZoom(this.zoomScale - 0.1); },
 
-    // Fix: nút 🏠 giờ reset cả zoom LẪN scroll về đầu trang
     resetZoom() {
         this.setZoom(1);
         const container = document.getElementById('tree-container');
-        if (container) {
-            container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
-        }
+        if (container) container.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
     },
 
     // --- RENDER ---
     render() {
-        const tw = document.getElementById('family-tree-wrapper'), es = document.getElementById('empty-state');
+        const tw = document.getElementById('family-tree-wrapper');
+        const es = document.getElementById('empty-state');
         if (this.data.length === 0) { tw.innerHTML = ''; es.classList.remove('hidden'); return; }
         es.classList.add('hidden');
-        const roots = this.data.filter(p => !p.parentId || p.parentId === "null" || p.parentId === "");
-        if(roots.length > 0) tw.innerHTML = `<div class="tf-tree text-center">${this.buildTreeHTML(roots)}</div>`;
-        else tw.innerHTML = `<div class="bg-white p-6 rounded shadow border border-red-200 text-center mx-auto mt-10">⚠️ Mất liên kết Thủy Tổ. <button onclick="app.startAdding(null)" class="text-blue-500 underline font-bold mt-2">Tạo lại</button></div>`;
+
+        this._rebuildSpouseIds();
+
+        // Root = không có parentId VÀ không phải là vợ/chồng của ai khác
+        const roots = this.data.filter(p => 
+            (!p.parentId || p.parentId === "null" || p.parentId === "") && 
+            !this._spouseIds.has(p.id)
+        );
+
+        if (roots.length > 0) {
+            tw.innerHTML = `<div class="tf-tree text-center">${this.buildTreeHTML(roots)}</div>`;
+        } else {
+            tw.innerHTML = `<div class="bg-white p-6 rounded shadow border border-red-200 text-center mx-auto mt-10">⚠️ Mất liên kết Thủy Tổ. <button onclick="app.startAdding(null)" class="text-blue-500 underline font-bold mt-2">Tạo lại</button></div>`;
+        }
+    },
+
+    // Render thẻ của một thành viên
+    renderMemberCard(n) {
+        return `<div class="tf-nc ${n.gender === 'M' ? 'gender-m' : 'gender-f'} ${this.selectedId === n.id ? 'selected' : ''}" onclick="app.selectMember('${n.id}')">
+            <div class="font-bold flex flex-col items-center">
+                ${n.avatar 
+                    ? `<img src="${n.avatar}" class="w-12 h-12 rounded-full object-cover mb-1 border-2 border-white shadow">`
+                    : `<span class="text-2xl mb-1">${n.gender === 'M' ? '👨' : '👩'}</span>`
+                }
+                <span>${n.name}</span>
+            </div>
+            ${n.title ? `<div class="text-xs text-amber-700 bg-amber-50 inline-block px-1 rounded mt-1">${n.title}</div>` : ''}
+            <div class="text-xs text-stone-500 mt-1">${n.birth || '?'} - ${n.death || 'Nay'}</div>
+        </div>`;
     },
 
     buildTreeHTML(nodes) {
         if (!nodes || !nodes.length) return '';
+
+        // Lọc ra những người đang là vợ/chồng (sẽ hiển thị inline, không hiển thị riêng)
+        const filtered = nodes.filter(n => !this._spouseIds.has(n.id));
+        if (!filtered.length) return '';
+
         let html = '<ul>';
-        nodes.forEach(n => {
-            const c = this.data.filter(p => p.parentId === n.id);
-            const spouseColorClass = n.gender === 'M' ? 'text-pink-600' : 'text-blue-600';
-            
-            html += `<li><div class="tf-nc ${n.gender === 'M' ? 'gender-m' : 'gender-f'} ${this.selectedId === n.id ? 'selected' : ''}" onclick="app.selectMember('${n.id}')">
-                <div class="font-bold flex flex-col items-center">
-    ${n.avatar 
-        ? `<img src="${n.avatar}" class="w-12 h-12 rounded-full object-cover mb-1 border-2 border-white shadow">`
-        : `<span class="text-2xl mb-1">${n.gender === 'M' ? '👨' : '👩'}</span>`
-    }
-    <span>${n.name}</span>
-</div>
-                ${n.title ? `<div class="text-xs text-amber-700 bg-amber-50 inline-block px-1 rounded mt-1">${n.title}</div>` : ''}
-                <div class="text-xs text-stone-500 mt-1">${n.birth || '?'} - ${n.death || 'Nay'}</div>
-${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</div>` : ''}
-            </div>${this.buildTreeHTML(c)}</li>`;
-        }); return html + '</ul>';
+        filtered.forEach(n => {
+            const children = this.data.filter(p => String(p.parentId) === String(n.id));
+            const spouse = n.spouseId ? this.data.find(p => p.id === n.spouseId) : null;
+
+            html += `<li>`;
+            if (spouse) {
+                // Hiển thị cặp vợ chồng song song
+                html += `<div class="couple-wrapper">
+                    ${this.renderMemberCard(n)}
+                    <div class="couple-connector">❤️</div>
+                    ${this.renderMemberCard(spouse)}
+                </div>`;
+            } else {
+                html += this.renderMemberCard(n);
+            }
+            html += this.buildTreeHTML(children);
+            html += `</li>`;
+        });
+        return html + '</ul>';
     },
 
     // --- UX/UI INTERACTION ---
     selectMember(id) {
-    this.selectedId = id; 
-    this.render(); 
-    const m = this.data.find(p => p.id === id); 
-    if (!m) return;
-    
-    document.getElementById('panel-stats').classList.add('hidden'); 
-    document.getElementById('panel-editor').classList.remove('hidden');
-    ['id','parentId','name','gender','title','birth','death','desc','avatar'].forEach(k => document.getElementById('f-'+k).value = m[k] || '');
-    // Bỏ 'spouse' khỏi dòng này
-    
-    const preview = document.getElementById('f-avatar-preview');
-    if (m.avatar) {
-        preview.src = m.avatar;
-        preview.classList.remove('hidden');
-    } else {
-        preview.src = '';
-        preview.classList.add('hidden');
-    }
-    document.getElementById('f-avatar-input').value = '';
-    document.getElementById('btn-add-child').classList.remove('hidden');
-    document.getElementById('btn-add-spouse').classList.remove('hidden');  // Thêm dòng này
-    document.getElementById('btn-delete').classList.remove('hidden');
+        this.selectedId = id;
+        this._addingSpouseFor = null;
+        this.render(); 
+        const m = this.data.find(p => p.id === id); 
+        if (!m) return;
+        
+        document.getElementById('panel-stats').classList.add('hidden'); 
+        document.getElementById('panel-editor').classList.remove('hidden');
+        document.getElementById('form-title').innerText = 'Thông tin thành viên';
 
-    this.toggleMobilePanel(true);
-},
+        // Điền dữ liệu vào form
+        const fields = ['id', 'parentId', 'name', 'gender', 'title', 'birth', 'death', 'desc', 'avatar', 'spouseId', 'spouse'];
+        fields.forEach(k => {
+            const el = document.getElementById('f-' + k);
+            if (el) el.value = m[k] || '';
+        });
 
-    startAdding(pId, isSpouse = false) {
-    this.selectedId = null; 
-    this.render();
-    document.getElementById('panel-stats').classList.add('hidden'); 
-    document.getElementById('panel-editor').classList.remove('hidden');
-    document.getElementById('member-form').reset();
-    document.getElementById('f-avatar').value = '';
-    document.getElementById('f-avatar-preview').src = '';
-    document.getElementById('f-avatar-preview').classList.add('hidden'); 
-    document.getElementById('f-id').value = ''; 
-    document.getElementById('f-parentId').value = pId || '';
-    document.getElementById('btn-add-child').classList.add('hidden'); 
-    document.getElementById('btn-add-spouse').classList.add('hidden'); 
-    document.getElementById('btn-delete').classList.add('hidden');
+        // Preview ảnh
+        const preview = document.getElementById('f-avatar-preview');
+        if (m.avatar) {
+            preview.src = m.avatar;
+            preview.classList.remove('hidden');
+        } else {
+            preview.src = '';
+            preview.classList.add('hidden');
+        }
+        document.getElementById('f-avatar-input').value = '';
 
-    this.toggleMobilePanel(true);
-},
+        // Hiển thị thông tin vợ/chồng nếu có
+        const spouseInfo = document.getElementById('spouse-info');
+        const btnAddSpouse = document.getElementById('btn-add-spouse');
+        if (m.spouseId) {
+            const spouseData = this.data.find(p => p.id === m.spouseId);
+            if (spouseData) {
+                document.getElementById('spouse-name-display').innerText = spouseData.name;
+                spouseInfo.classList.remove('hidden');
+                btnAddSpouse.classList.add('hidden');
+            } else {
+                // spouseId tồn tại nhưng thành viên đó đã bị xóa
+                spouseInfo.classList.add('hidden');
+                btnAddSpouse.classList.remove('hidden');
+            }
+        } else {
+            spouseInfo.classList.add('hidden');
+            btnAddSpouse.classList.remove('hidden');
+        }
+
+        document.getElementById('btn-add-child').classList.remove('hidden'); 
+        document.getElementById('btn-delete').classList.remove('hidden');
+
+        this.toggleMobilePanel(true);
+    },
+
+    startAdding(pId) {
+        this.selectedId = null;
+        this._addingSpouseFor = null;
+        this.render();
+        document.getElementById('panel-stats').classList.add('hidden'); 
+        document.getElementById('panel-editor').classList.remove('hidden');
+        document.getElementById('member-form').reset();
+        document.getElementById('f-avatar').value = '';
+        document.getElementById('f-avatar-preview').src = '';
+        document.getElementById('f-avatar-preview').classList.add('hidden'); 
+        document.getElementById('f-id').value = ''; 
+        document.getElementById('f-parentId').value = pId || '';
+        document.getElementById('f-spouseId').value = '';
+        document.getElementById('form-title').innerText = pId ? 'Thêm thành viên mới' : 'Tạo Thủy Tổ';
+        document.getElementById('btn-add-child').classList.add('hidden'); 
+        document.getElementById('btn-add-spouse').classList.add('hidden');
+        document.getElementById('btn-delete').classList.add('hidden');
+        document.getElementById('spouse-info').classList.add('hidden');
+
+        this.toggleMobilePanel(true);
+    },
 
     startAddingChild() { 
         const id = document.getElementById('f-id').value; 
-        if(id) this.startAdding(id); 
+        if (id) this.startAdding(id); 
     },
-    startAddingSpouse() { 
-    const id = document.getElementById('f-id').value; 
-    if(id) this.startAdding(id, true); // tham số thứ 2 để đánh dấu là thêm vợ/chồng
+
+    startAddingSpouse() {
+        const currentId = document.getElementById('f-id').value;
+        if (!currentId) return;
+
+        this._addingSpouseFor = currentId;
+        this.selectedId = null;
+        this.render();
+
+        document.getElementById('panel-stats').classList.add('hidden');
+        document.getElementById('panel-editor').classList.remove('hidden');
+        document.getElementById('member-form').reset();
+        document.getElementById('f-avatar').value = '';
+        document.getElementById('f-avatar-preview').src = '';
+        document.getElementById('f-avatar-preview').classList.add('hidden');
+        document.getElementById('f-id').value = '';
+        document.getElementById('f-parentId').value = '';
+        document.getElementById('f-spouseId').value = '';
+        document.getElementById('form-title').innerText = '💑 Thêm Vợ / Chồng';
+        document.getElementById('btn-add-child').classList.add('hidden');
+        document.getElementById('btn-add-spouse').classList.add('hidden');
+        document.getElementById('btn-delete').classList.add('hidden');
+        document.getElementById('spouse-info').classList.add('hidden');
+
+        this.toggleMobilePanel(true);
     },
+
+    // Nhảy sang form của vợ/chồng
+    viewSpouse() {
+        const spouseId = document.getElementById('f-spouseId').value;
+        if (spouseId) this.selectMember(spouseId);
+    },
+
+    // Hủy liên kết vợ/chồng (giữ cả 2 thành viên, chỉ xóa spouseId)
+    async unlinkSpouse() {
+        const memberId = document.getElementById('f-id').value;
+        const spouseId = document.getElementById('f-spouseId').value;
+        if (!memberId || !spouseId) return;
+
+        if (confirm('Hủy liên kết vợ/chồng?\nCả hai thành viên vẫn được giữ lại trong gia phả.')) {
+            try {
+                const member = this.data.find(p => p.id === memberId);
+                const spouse = this.data.find(p => p.id === spouseId);
+
+                if (member) await this._saveToApi({ ...member, spouseId: null });
+                if (spouse) await this._saveToApi({ ...spouse, spouseId: null });
+
+                await this.loadData();
+                this.selectMember(memberId);
+            } catch(e) {
+                if (e.message !== 'Unauthorized') alert('Lỗi khi hủy liên kết!');
+            }
+        }
+    },
+
     closeEditor() { 
-        this.selectedId = null; 
+        this.selectedId = null;
+        this._addingSpouseFor = null;
         this.render(); 
         document.getElementById('panel-editor').classList.add('hidden'); 
         document.getElementById('panel-stats').classList.remove('hidden'); 
@@ -477,9 +630,14 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
     
     // --- STATISTICS ---
     updateStats() {
-        const bloodCount = this.data.length;
-        const inlawCount = this.data.filter(p => p.spouse && p.spouse.trim() !== '').length;
-        const totalMembers = bloodCount + inlawCount;
+        this._rebuildSpouseIds();
+
+        // Phân loại ruột thịt vs dâu/rể dựa trên spouseId
+        const bloodMembers = this.data.filter(m => !this._spouseIds.has(m.id));
+        const inlawMembers = this.data.filter(m => this._spouseIds.has(m.id));
+        const bloodCount = bloodMembers.length;
+        const inlawCount = inlawMembers.length;
+        const totalMembers = this.data.length;
         
         if (document.getElementById('total-members-badge')) document.getElementById('total-members-badge').innerText = totalMembers;
         if (document.getElementById('blood-members-badge')) document.getElementById('blood-members-badge').innerText = bloodCount;
@@ -495,39 +653,31 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
         
         let maxY = 0; 
         this.data.forEach(p => { 
-            if(p.birth && parseInt(p.birth) > maxY) maxY = parseInt(p.birth); 
+            if (p.birth && parseInt(p.birth) > maxY) maxY = parseInt(p.birth); 
         }); 
         document.getElementById('stat-latest-year').innerText = maxY || '-';
         
-        let mBlood = 0, fBlood = 0, mInlaw = 0, fInlaw = 0, living = 0, deceased = 0;
-        this.data.forEach(p => {
-            if (p.gender === 'M') {
-                mBlood++;
-                if (p.spouse && p.spouse.trim() !== '') fInlaw++;
-            } else if (p.gender === 'F') {
-                fBlood++;
-                if (p.spouse && p.spouse.trim() !== '') mInlaw++;
-            }
-            // Còn sống: không có năm mất (hoặc năm mất trống)
-            if (!p.death || p.death.toString().trim() === '') living++;
-            else deceased++;
-        });
+        const mBlood = bloodMembers.filter(m => m.gender === 'M').length;
+        const fBlood = bloodMembers.filter(m => m.gender === 'F').length;
+        const mInlaw = inlawMembers.filter(m => m.gender === 'M').length;
+        const fInlaw = inlawMembers.filter(m => m.gender === 'F').length;
+        const living   = this.data.filter(p => !p.death || p.death.toString().trim() === '').length;
+        const deceased = this.data.filter(p =>  p.death &&  p.death.toString().trim() !== '').length;
 
-        // Vẽ bảng thống kê chi tiết
         const tableBody = document.getElementById('stat-table-body');
         if (tableBody) {
-            const total = this.data.length || 1; // tránh chia cho 0
+            const total = this.data.length || 1;
             const rows = [
-                { label: '👨 Nam (ruột thịt)',  count: mBlood,   color: 'text-blue-600',  bg: 'bg-blue-50' },
-                { label: '👩 Nữ (ruột thịt)',   count: fBlood,   color: 'text-pink-600',  bg: 'bg-pink-50' },
-                { label: '🤝 Ruột thịt (tổng)', count: bloodCount, color: 'text-stone-700', bg: '' },
-                { label: '💑 Dâu / Rể',         count: inlawCount, color: 'text-purple-600', bg: 'bg-purple-50' },
-                { label: '🌱 Còn sống',          count: living,   color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                { label: '🕊 Đã mất',            count: deceased, color: 'text-stone-400',  bg: 'bg-stone-50' },
+                { label: '👨 Nam (ruột thịt)',  count: mBlood,     color: 'text-blue-600',    bg: 'bg-blue-50' },
+                { label: '👩 Nữ (ruột thịt)',   count: fBlood,     color: 'text-pink-600',    bg: 'bg-pink-50' },
+                { label: '🤝 Ruột thịt (tổng)', count: bloodCount, color: 'text-stone-700',   bg: '' },
+                { label: '💑 Dâu / Rể',         count: inlawCount, color: 'text-purple-600',  bg: 'bg-purple-50' },
+                { label: '🌱 Còn sống',          count: living,     color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '🕊 Đã mất',            count: deceased,   color: 'text-stone-400',   bg: 'bg-stone-50' },
             ];
             tableBody.innerHTML = rows.map((r, i) => {
-                const pct = total > 0 ? Math.round((r.count / total) * 100) : 0;
-                const isDivider = i === 2; // dòng tổng ruột thịt — kẻ đậm hơn
+                const pct = Math.round((r.count / total) * 100);
+                const isDivider = i === 2;
                 return `<tr class="${r.bg || 'bg-white'} ${isDivider ? 'border-t-2 border-stone-200' : ''}">
                     <td class="px-4 py-2.5 text-stone-700 font-medium">${r.label}</td>
                     <td class="px-3 py-2.5 text-center font-bold ${r.color} text-base">${r.count}</td>
@@ -543,14 +693,12 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
             }).join('');
         }
 
-        if(this.chartInstance) { 
-            this.chartInstance.data.labels = ['Nam (Ruột thịt)', 'Nữ (Ruột thịt)', 'Nam (Dâu rể)', 'Nữ (Dâu rể)'];
+        if (this.chartInstance) { 
             this.chartInstance.data.datasets[0].data = [mBlood, fBlood, mInlaw, fInlaw];
-            this.chartInstance.data.datasets[0].backgroundColor = ['#3b82f6', '#ec4899', '#93c5fd', '#fbcfe8']; 
             this.chartInstance.update(); 
         } else { 
             const chartCtx = document.getElementById('genderChart');
-            if(chartCtx) {
+            if (chartCtx) {
                 this.chartInstance = new Chart(chartCtx.getContext('2d'), { 
                     type: 'doughnut', 
                     data: { 
@@ -572,9 +720,7 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
-                                        return ` ${context.label}: ${context.raw} người`;
-                                    }
+                                    label: (ctx) => ` ${ctx.label}: ${ctx.raw} người`
                                 }
                             }
                         } 
