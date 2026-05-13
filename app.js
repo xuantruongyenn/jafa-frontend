@@ -412,52 +412,58 @@ ${n.spouse ? `<div class="text-xs ${spouseColorClass} mt-1">💑 ${n.spouse}</di
 
     // --- UX/UI INTERACTION ---
     selectMember(id) {
-        this.selectedId = id; 
-        this.render(); 
-        const m = this.data.find(p => p.id === id); 
-        if (!m) return;
-        
-        document.getElementById('panel-stats').classList.add('hidden'); 
-        document.getElementById('panel-editor').classList.remove('hidden');
-        ['id','parentId','name','gender','title','birth','death','spouse','desc','avatar'].forEach(k => document.getElementById('f-'+k).value = m[k] || '');
+    this.selectedId = id; 
+    this.render(); 
+    const m = this.data.find(p => p.id === id); 
+    if (!m) return;
+    
+    document.getElementById('panel-stats').classList.add('hidden'); 
+    document.getElementById('panel-editor').classList.remove('hidden');
+    ['id','parentId','name','gender','title','birth','death','desc','avatar'].forEach(k => document.getElementById('f-'+k).value = m[k] || '');
+    // Bỏ 'spouse' khỏi dòng này
+    
+    const preview = document.getElementById('f-avatar-preview');
+    if (m.avatar) {
+        preview.src = m.avatar;
+        preview.classList.remove('hidden');
+    } else {
+        preview.src = '';
+        preview.classList.add('hidden');
+    }
+    document.getElementById('f-avatar-input').value = '';
+    document.getElementById('btn-add-child').classList.remove('hidden');
+    document.getElementById('btn-add-spouse').classList.remove('hidden');  // Thêm dòng này
+    document.getElementById('btn-delete').classList.remove('hidden');
 
-        const preview = document.getElementById('f-avatar-preview');
-        if (m.avatar) {
-            preview.src = m.avatar;
-            preview.classList.remove('hidden');
-        } else {
-            preview.src = '';
-            preview.classList.add('hidden');
-        }
-        document.getElementById('f-avatar-input').value = '';
-        document.getElementById('btn-add-child').classList.remove('hidden'); 
-        document.getElementById('btn-delete').classList.remove('hidden');
+    this.toggleMobilePanel(true);
+},
 
-        this.toggleMobilePanel(true);
-    },
+    startAdding(pId, isSpouse = false) {
+    this.selectedId = null; 
+    this.render();
+    document.getElementById('panel-stats').classList.add('hidden'); 
+    document.getElementById('panel-editor').classList.remove('hidden');
+    document.getElementById('member-form').reset();
+    document.getElementById('f-avatar').value = '';
+    document.getElementById('f-avatar-preview').src = '';
+    document.getElementById('f-avatar-preview').classList.add('hidden'); 
+    document.getElementById('f-id').value = ''; 
+    document.getElementById('f-parentId').value = pId || '';
+    document.getElementById('btn-add-child').classList.add('hidden'); 
+    document.getElementById('btn-add-spouse').classList.add('hidden'); 
+    document.getElementById('btn-delete').classList.add('hidden');
 
-    startAdding(pId) {
-        this.selectedId = null; 
-        this.render();
-        document.getElementById('panel-stats').classList.add('hidden'); 
-        document.getElementById('panel-editor').classList.remove('hidden');
-        document.getElementById('member-form').reset();
-        document.getElementById('f-avatar').value = '';
-        document.getElementById('f-avatar-preview').src = '';
-        document.getElementById('f-avatar-preview').classList.add('hidden'); 
-        document.getElementById('f-id').value = ''; 
-        document.getElementById('f-parentId').value = pId || '';
-        document.getElementById('btn-add-child').classList.add('hidden'); 
-        document.getElementById('btn-delete').classList.add('hidden');
-
-        this.toggleMobilePanel(true);
-    },
+    this.toggleMobilePanel(true);
+},
 
     startAddingChild() { 
         const id = document.getElementById('f-id').value; 
         if(id) this.startAdding(id); 
     },
-
+    startAddingSpouse() { 
+    const id = document.getElementById('f-id').value; 
+    if(id) this.startAdding(id, true); // tham số thứ 2 để đánh dấu là thêm vợ/chồng
+    },
     closeEditor() { 
         this.selectedId = null; 
         this.render(); 
