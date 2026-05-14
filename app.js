@@ -602,9 +602,18 @@ const app = {
         this.toggleMobilePanel(true);
     },
 
-    startAddingChild() { 
-        const id = document.getElementById('f-id').value; 
-        if (id) this.startAdding(id); 
+    startAddingChild() {
+        let id = document.getElementById('f-id').value;
+        if (!id) return;
+
+        // Nếu người đang được chọn là dâu/rể, chuyển parentId về người máu mủ
+        // để con được rẽ nhánh đúng từ cặp vợ chồng, không phải riêng từ dâu/rể
+        if (this._spouseIds.has(id)) {
+            const bloodMember = this.data.find(p => p.spouseId === id);
+            if (bloodMember) id = bloodMember.id;
+        }
+
+        this.startAdding(id);
     },
 
     startAddingSpouse() {
