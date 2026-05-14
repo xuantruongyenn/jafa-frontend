@@ -171,8 +171,53 @@ const app = {
     },
 
     _rebuildSpouseIds() {
-        // Tập hợp các ID thành viên đang là vợ/chồng của người khác
-        this._spouseIds = new Set(this.data.filter(m => m.spouseId).map(m => m.spouseId));
+        // Chỉ đưa đúng 1 người mỗi cặp vào _spouseIds (người dâu/rể - render inline)
+        // Tránh trường hợp lưu 2 chiều (A.spouseId=B và B.spouseId=A) khiến cả hai bị filter
+        const result = new Set();
+        const seen   = new Set();
+
+        this.data.forEach(m => {
+            if (!m.spouseId || seen.has(m.id)) return;
+            const spouseId = m.spouseId;
+            seen.add(m.id);
+            seen.add(spouseId);
+
+            const spouse = this.data.find(p => p.id === spouseId);
+            if (!spouse) return;
+
+            const hasParent = id => {
+                const v = this.data.find(p => p.id === id);
+                return !!(v && v.parentId && v.parentId !== "null" && v.parentId !== "");
+            };
+            const mHasParent = hasParent(m.id);
+            const sHasParent = hasParent(spouseId);
+
+            if (mHasParent && !sHasParent) {
+                // m là máu mủ (có cha/mẹ), spouse là dâu/rể
+                result.add(spouseId);
+            } else if (sHasParent && !mHasParent) {
+                // spouse là máu mủ, m là dâu/rể
+                result.add(m.id);
+            } else {
+                // Cả hai đều không có parentId (cặp gốc) hoặc cùng có parentId
+                // Tiebreaker 1: ai không có con → là dâu/rể
+                const mHasChildren = this.data.some(p => String(p.parentId) === String(m.id));
+                const sHasChildren = this.data.some(p => String(p.parentId) === String(spouseId));
+
+                if (!mHasChildren && sHasChildren) {
+                    result.add(m.id);          // m không có con → m là dâu/rể
+                } else if (!sHasChildren && mHasChildren) {
+                    result.add(spouseId);      // spouse không có con → spouse là dâu/rể
+                } else {
+                    // Tiebreaker 2: người thêm sau (ID lớn hơn theo timestamp) là dâu/rể
+                    const mNum = parseInt(m.id) || 0;
+                    const sNum = parseInt(spouseId) || 0;
+                    result.add(mNum <= sNum ? spouseId : m.id);
+                }
+            }
+        });
+
+        this._spouseIds = result;
     },
 
     async saveMember(event) {
