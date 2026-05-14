@@ -223,6 +223,23 @@ const app = {
     async saveMember(event) {
         event.preventDefault();
         const id = document.getElementById('f-id').value;
+
+        // --- BẮT ĐẦU ĐOẠN CODE THÊM MỚI ---
+        let parentIdToSave = document.getElementById('f-parentId').value || null;
+
+        // Kiểm tra xem parentId đang chọn có phải là dâu/rể hay không
+        if (parentIdToSave && this._spouseIds.has(parentIdToSave)) {
+            const partner1 = this.data.find(p => p.id === parentIdToSave);
+            const partner2 = this.data.find(p => p.spouseId === parentIdToSave);
+
+            if (partner1 && partner1.spouseId && !this._spouseIds.has(partner1.spouseId)) {
+                parentIdToSave = partner1.spouseId; // Gán lại thành id của người ruột thịt
+            } else if (partner2 && !this._spouseIds.has(partner2.id)) {
+                parentIdToSave = partner2.id;       // Gán lại thành id của người ruột thịt
+            }
+        }
+        // --- KẾT THÚC ĐOẠN CODE THÊM MỚI ---
+
         const newData = {
             id: id || Date.now().toString(),
             name: document.getElementById('f-name').value,
@@ -232,7 +249,7 @@ const app = {
             death: document.getElementById('f-death').value,
             spouse: document.getElementById('f-spouse').value || null,       // backward compat
             desc: document.getElementById('f-desc').value,
-            parentId: document.getElementById('f-parentId').value || null,
+            parentId: parentIdToSave, // <--- SỬA DÒNG NÀY (dùng biến parentIdToSave thay vì lấy trực tiếp)
             spouseId: document.getElementById('f-spouseId').value || null,
             avatar: document.getElementById('f-avatar').value || null  
         };
