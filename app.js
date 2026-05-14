@@ -255,18 +255,25 @@ const app = {
         };
 
         try {
+            // Kiểm tra xem có đang thêm vợ/chồng mới không
             if (this._addingSpouseFor && !id) {
-                // Đang thêm vợ/chồng mới cho một thành viên
                 const partnerOriginalId = this._addingSpouseFor;
+                
+                // Bước 1: Gán cho người mới (D) trỏ về người gốc (C)
                 newData.spouseId = partnerOriginalId;
 
-                // 1. Lưu thành viên mới (vợ/chồng)
-                await this._saveToApi(newData);
+                // Bước 2: Lưu người mới (D) vào database
+                // (Bác dùng nguyên hàm lưu hiện tại của bác ở đây, ví dụ:)
+                await this._saveToApi(newData); 
 
-                // 2. Cập nhật spouseId ngược lại cho thành viên gốc
+                // Bước 3: QUAN TRỌNG NHẤT - Cập nhật người gốc (C) trỏ ngược lại D
                 const originalMember = this.data.find(p => p.id === partnerOriginalId);
                 if (originalMember) {
-                    await this._saveToApi({ ...originalMember, spouseId: newData.id });
+                    // BẮT BUỘC dùng newData.id (vì ID đã được tạo từ Frontend bằng Date.now())
+                    originalMember.spouseId = newData.id; 
+                    
+                    // Gọi lại hàm lưu để cập nhật C vào database
+                    await this._saveToApi(originalMember); 
                 }
 
                 this._addingSpouseFor = null;
