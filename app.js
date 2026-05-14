@@ -505,8 +505,16 @@ const app = {
 
         let html = '<ul>';
         filtered.forEach(n => {
-            const children = this.data.filter(p => String(p.parentId) === String(n.id));
             const spouse = n.spouseId ? this.data.find(p => p.id === n.spouseId) : null;
+
+            // Gom con của CẢ HAI người trong cặp vợ chồng
+            // Tránh trường hợp con được lưu với parentId trỏ vào người dâu/rể
+            const childMap = new Map();
+            this.data
+                .filter(p => String(p.parentId) === String(n.id) ||
+                             (spouse && String(p.parentId) === String(spouse.id)))
+                .forEach(c => childMap.set(c.id, c));
+            const children = [...childMap.values()];
 
             html += `<li>`;
             if (spouse) {
